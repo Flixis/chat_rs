@@ -1,15 +1,19 @@
+use std::io::Cursor;
+
 use chrono::Utc;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
     sync::broadcast,
 };
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
     //open a listening socket
     let listeren = TcpListener::bind("localhost:8080").await.unwrap();
     let current_time = Utc::now();
+    let uuid = Uuid::new_v4();
 
     //create a listener that can receive and write messages to all connected sockets
     let (tx, _rx) = broadcast::channel(10);
@@ -18,6 +22,9 @@ async fn main() {
     loop {
         //accept incoming socket connections
         let (mut socket, addr) = listeren.accept().await.unwrap();
+        let welcome_message = format!("{uuid}\nWelcome to the chat server\n");
+        let mut buffer = Cursor::new(welcome_message);
+        let _welcome_message = socket.write_buf(&mut buffer).await;
 
         //create a transmit and receive buffer
         let tx = tx.clone();

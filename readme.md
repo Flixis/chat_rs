@@ -1,12 +1,4 @@
-Build a server that can host users and facilate messages.
+Build a server that can host users and facilitate messages.
 
-Server
-- Faciltate usersa
-- Create messages
+- Facilitate users
 - Send to all users
-
-
-Chat client
-- Send messages
-- Create chatroom 
-- Host a server
