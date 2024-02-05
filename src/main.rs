@@ -1,10 +1,9 @@
-use std::{collections::HashMap, io::Cursor, net::SocketAddr};
 use chrono::Utc;
 use log::info;
-use logging_settings::setup_loggers;
+use std::{collections::HashMap, io::Cursor, net::SocketAddr};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{TcpListener, TcpStream},
+    net::TcpListener,
     sync::broadcast,
 };
 use uuid::Uuid;
@@ -14,7 +13,7 @@ mod logging_settings;
 struct Chatroom {
     id: Uuid,
     channel_name: String,
-    users: HashMap<Uuid, (SocketAddr)>,
+    users: HashMap<Uuid, SocketAddr>,
 }
 
 impl Chatroom {
@@ -27,15 +26,14 @@ impl Chatroom {
     }
 
     // Modify the add_user method to accept a Uuid as an identifier for the TcpStream
-    fn add_user(&mut self, socketaddr:SocketAddr) {
+    fn add_user(&mut self, socketaddr: SocketAddr) {
         let user_id = Uuid::new_v4();
-        self.users.insert(user_id, (socketaddr));
+        self.users.insert(user_id, socketaddr);
     }
 }
 
 #[tokio::main]
 async fn main() {
-
     logging_settings::setup_loggers();
     //open a listening socket
     let listeren = TcpListener::bind("0.0.0.0:8080").await.unwrap();
@@ -54,9 +52,8 @@ async fn main() {
         let mut buffer = Cursor::new(welcome_message);
         let _welcome_message = socket.write_buf(&mut buffer).await;
 
-
         chatroom.add_user(addr);
-        info!("User Added: {:?}", chatroom.users);
+        info!("{}({}) | Current users: {:?}",chatroom.id, chatroom.channel_name, chatroom.users);
 
         //create a transmit and receive buffer
         let tx = tx.clone();
