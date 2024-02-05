@@ -11,14 +11,14 @@ use uuid::Uuid;
 
 mod logging_settings;
 #[derive(Debug)]
-struct Chatroom<'a> {
+struct Chatroom {
     id: Uuid,
     channel_name: String,
-    users: HashMap<Uuid, (&'a TcpStream, &'a SocketAddr)>,
+    users: HashMap<Uuid, (SocketAddr)>,
 }
 
-impl<'a> Chatroom<'a> {
-    fn new(channel_name: String) -> Chatroom<'a> {
+impl Chatroom {
+    fn new(channel_name: String) -> Chatroom {
         Chatroom {
             id: Uuid::new_v4(),
             channel_name,
@@ -27,9 +27,9 @@ impl<'a> Chatroom<'a> {
     }
 
     // Modify the add_user method to accept a Uuid as an identifier for the TcpStream
-    fn add_user(&mut self, tcpstream: &'a TcpStream, socketaddr: &'a SocketAddr) {
+    fn add_user(&mut self, socketaddr:SocketAddr) {
         let user_id = Uuid::new_v4();
-        self.users.insert(user_id, (tcpstream, socketaddr));
+        self.users.insert(user_id, (socketaddr));
     }
 }
 
@@ -38,12 +38,13 @@ async fn main() {
 
     logging_settings::setup_loggers();
     //open a listening socket
-    let listeren = TcpListener::bind("localhost:8080").await.unwrap();
+    let listeren = TcpListener::bind("0.0.0.0:8080").await.unwrap();
     let current_time = Utc::now();
     let uuid = Uuid::new_v4();
 
     //create a listener that can receive and write messages to all connected sockets
     let (tx, _rx) = broadcast::channel(10);
+    let mut chatroom = Chatroom::new("chatroom".to_string());
 
     //create a loop for async to start processing
     loop {
@@ -54,8 +55,7 @@ async fn main() {
         let _welcome_message = socket.write_buf(&mut buffer).await;
 
 
-        let mut chatroom = Chatroom::new("chatroom".to_string());
-        chatroom.add_user(&socket, &addr);
+        chatroom.add_user(addr);
         info!("User Added: {:?}", chatroom.users);
 
         //create a transmit and receive buffer

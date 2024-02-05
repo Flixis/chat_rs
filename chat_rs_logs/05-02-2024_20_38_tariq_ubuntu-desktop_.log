@@ -1,2 +1,0 @@
-20:38:20 [INFO] User Added: {f1191a78-aa53-4d1a-8f2a-e48f9206469e: (PollEvented { io: Some(TcpStream { addr: 127.0.0.1:8080, peer: 127.0.0.1:54004, fd: 11 }) }, 127.0.0.1:54004)}
-20:38:22 [INFO] User Added: {a8cfee44-39a8-4de6-8fba-38edc8b4907b: (PollEvented { io: Some(TcpStream { addr: 127.0.0.1:8080, peer: 127.0.0.1:54016, fd: 12 }) }, 127.0.0.1:54016)}
