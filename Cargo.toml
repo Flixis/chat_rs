@@ -1,5 +1,5 @@
 [package]
-name = "chat_server"
+name = "chat_rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,5 +7,8 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.33"
+log = "0.4.20"
+simplelog = "0.12.1"
 tokio = { version = "1.35.1", features = ["full"] }
 uuid = { version = "1.7.0", features = ["v4"] }
+whoami = "1.4.1"
