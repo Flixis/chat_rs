@@ -9,6 +9,7 @@ use tokio::{
 use uuid::Uuid;
 
 mod logging_settings;
+
 #[derive(Debug)]
 struct Chatroom {
     id: Uuid,
@@ -25,7 +26,6 @@ impl Chatroom {
         }
     }
 
-    // Modify the add_user method to accept a Uuid as an identifier for the TcpStream
     fn add_user(&mut self, socketaddr: SocketAddr) {
         let user_id = Uuid::new_v4();
         self.users.insert(user_id, socketaddr);
@@ -35,67 +35,47 @@ impl Chatroom {
 #[tokio::main]
 async fn main() {
     logging_settings::setup_loggers();
-    //open a listening socket
-    let listeren = TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    let current_time = Utc::now();
-    let uuid = Uuid::new_v4();
-
-    //create a listener that can receive and write messages to all connected sockets
-    let (tx, _rx) = broadcast::channel(10);
+    let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    let (tx, _) = broadcast::channel(10);
     let mut chatroom = Chatroom::new("chatroom".to_string());
 
-    //create a loop for async to start processing
     loop {
-        //accept incoming socket connections
-        let (mut socket, addr) = listeren.accept().await.unwrap();
-        let welcome_message = format!("{uuid}\nWelcome to the chat server\n");
+        let (mut socket, addr) = listener.accept().await.unwrap();
+        let welcome_message = format!("{}\nWelcome to the chat server\n", Uuid::new_v4());
         let mut buffer = Cursor::new(welcome_message);
-        let _welcome_message = socket.write_buf(&mut buffer).await;
+        let _ = socket.write_all_buf(&mut buffer).await;
 
         chatroom.add_user(addr);
-        info!("{}({}) | Current users: {:?}",chatroom.id, chatroom.channel_name, chatroom.users);
+        info!("{}({}) | Current users: {:?}", chatroom.id, chatroom.channel_name, chatroom.users);
 
-        //create a transmit and receive buffer
         let tx = tx.clone();
-        //tx subscribe is for some reason the the way you read receive messages using broadcast
-        let mut rx = tx.subscribe();
+        tokio::spawn(handle_connection(socket, addr, tx));
+    }
+}
 
-        //using tokio spawn we can do async things
-        tokio::spawn(async move {
-            //split the socket in 2 halfs, one half reads the other writes
-            let (reader, mut writer) = socket.split();
-            //assign the incoming data read to reader
-            let mut reader = BufReader::new(reader);
-            //setup empty string to put reader in buffer
-            let mut line = String::new();
+async fn handle_connection(mut socket: tokio::net::TcpStream, addr: SocketAddr, tx: broadcast::Sender<(String, SocketAddr)>) {
+    let (reader, mut writer) = socket.split();
+    let mut reader = BufReader::new(reader);
+    let mut line = String::new();
+    let mut rx = tx.subscribe();
 
-            //using tokio select we can do 2 things at the same time
-            loop {
-                tokio::select! {
-                    //if we are reading from a socket
-                    result = reader.read_line(&mut line) => {
-                        //if we get nothing back from socket its probably disconnected so we disconnect the socket
-                        if result.unwrap() == 0{
-                            break;
-                        }
-                        //oterwise broadcast the incoming data to the whole TCP connection
-                        let timed_message = format!("{current_time}: {}", line.clone());
-                        tx.send((timed_message, addr)).unwrap();
-                        //line clear to empty string buffer
-                        line.clear();
-                    }
+    loop {
+        tokio::select! {
+            result = reader.read_line(&mut line) => {
+                if result.unwrap() == 0 {
+                    break;
+                }
+                let timed_message = format!("{}: {}", Utc::now(), line.clone());
+                tx.send((timed_message, addr)).unwrap();
+                line.clear();
+            }
 
-                    //when receiving from TCP connection
-                    result = rx.recv() => {
-                        let (msg, other_addr) = result.unwrap();
-
-                        //if the data comes from the same address we should not reprint the data on that addr screen.
-                        if addr != other_addr{
-                            writer.write_all(msg.as_bytes()).await.unwrap();
-                        }
-                    }
+            result = rx.recv() => {
+                let (msg, other_addr) = result.unwrap();
+                if addr != other_addr {
+                    writer.write_all(msg.as_bytes()).await.unwrap();
                 }
             }
-        });
+        }
     }
 }
