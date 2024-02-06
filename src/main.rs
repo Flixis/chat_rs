@@ -10,6 +10,7 @@ use uuid::Uuid;
 mod logging_settings;
 mod connection_handler;
 mod chatroom;
+mod commands;
 
 
 #[tokio::main]
