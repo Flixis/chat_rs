@@ -1,13 +1,19 @@
 use chrono::Utc;
-use std::net::SocketAddr;
+use uuid::Uuid;
+use std::{net::SocketAddr};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    sync::broadcast,
+    sync::{broadcast},
 };
 
-use crate::commands::{Command, GreetCommand};
+use crate::{chatroom::Chatroom, commands::{Command, GreetCommand, RemoveUserByUuid}};
 
-pub async fn handle_connection(mut socket: tokio::net::TcpStream, addr: SocketAddr, tx: broadcast::Sender<(String, SocketAddr)>) {
+pub async fn handle_connection(
+    mut socket: tokio::net::TcpStream,
+    addr: SocketAddr,
+    tx: broadcast::Sender<(String, SocketAddr)>,
+    mut chatroom: Chatroom,
+) {
     let (reader, mut writer) = socket.split();
     let mut reader: BufReader<tokio::net::tcp::ReadHalf<'_>> = BufReader::new(reader);
     let mut line: String = String::new();
@@ -19,14 +25,24 @@ pub async fn handle_connection(mut socket: tokio::net::TcpStream, addr: SocketAd
                 if result.unwrap() == 0 {
                     break;
                 }
-                let is_command = line.trim() == "/hello";
-
-                if is_command {
+                let trimmed_line = line.trim();
+                if trimmed_line.starts_with("/hello") {
                     // Respond directly to the command without broadcasting
                     writer.write_all("world\n".as_bytes()).await.unwrap();
                     let greet_command = GreetCommand::new();
-                    greet_command.execute();
-                } else {
+                    greet_command.execute(&mut chatroom, "".to_string());
+                } else if trimmed_line.starts_with("/remove ") {
+                    // Extract the UUID from the command input
+                    let uuid_arg = trimmed_line.strip_prefix("/remove ").unwrap_or("").to_string();
+                    if let Ok(_) = Uuid::parse_str(&uuid_arg) {
+                        let remove_command = RemoveUserByUuid::new();
+                        remove_command.execute(&mut chatroom, uuid_arg);
+                        // Optional: send confirmation message to the admin/user who issued the command
+                        writer.write_all("User removed.\n".as_bytes()).await.unwrap();
+                    } else {
+                        writer.write_all("Invalid UUID format.\n".as_bytes()).await.unwrap();
+                    }
+                } else { 
                     // Broadcast non-command messages
                     let timed_message = format!("{}: {}", Utc::now(), line);
                     tx.send((timed_message, addr)).unwrap();
@@ -45,3 +61,4 @@ pub async fn handle_connection(mut socket: tokio::net::TcpStream, addr: SocketAd
         }
     }
 }
+

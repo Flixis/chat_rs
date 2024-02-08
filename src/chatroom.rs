@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chatroom {
     pub id: Uuid,
     pub channel_name: String,
@@ -25,7 +25,10 @@ impl Chatroom {
         // Insert user into users map
         self.users.insert(user_id, socketaddr);
         // Insert or update the addr_to_users map
-        self.addr_to_users.entry(socketaddr).or_insert_with(HashSet::new).insert(user_id);
+        self.addr_to_users
+            .entry(socketaddr)
+            .or_insert_with(HashSet::new)
+            .insert(user_id);
         user_id // Return the Uuid of the newly added user
     }
 
