@@ -21,11 +21,12 @@ pub async fn handle_connection(
     let stream = Arc::new(Mutex::new(stream));
  
     {
-        let _lock = stream.lock().await;
-        let _: Uuid = chatroom.add_user(stream.clone());
+        let stream = stream.clone();
+        let _: Uuid = chatroom.add_user(stream).await;
     }
     
-    let mut stream = stream.lock().await;
+    let stream_clone = stream.clone();
+    let mut stream = stream_clone.lock().await;
     let (reader, mut writer) = stream.split();
    
 
@@ -75,13 +76,13 @@ async fn parse_command(
         // Respond directly to the command without broadcasting
         writer.write_all("world\n".as_bytes()).await.unwrap();
         let greet_command = GreetCommand::new();
-        greet_command.execute(&mut chatroom, "".to_string());
+        greet_command.execute(&mut chatroom, "".to_string()).await;
     } else if line.starts_with("/remove ") {
         // Extract the UUID from the command input
         let uuid_arg = line.strip_prefix("/remove ").unwrap_or("").to_string();
         if let Ok(_) = Uuid::parse_str(&uuid_arg) {
             let remove_command = RemoveUserByUuid::new();
-            remove_command.execute(&mut chatroom, uuid_arg);
+            remove_command.execute(&mut chatroom, uuid_arg).await;
             // Optional: send confirmation message to the admin/user who issued the command
             writer
                 .write_all("User removed.\n".as_bytes())
@@ -96,7 +97,7 @@ async fn parse_command(
     } else if line.starts_with("/connected") {
         info!(
             "{}({}) \n Current users: {:?}",
-            chatroom.id, chatroom.channel_name, chatroom.users
+            chatroom.id, chatroom.channel_name, chatroom.users.len()
         );
     }
 }
