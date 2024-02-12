@@ -70,7 +70,7 @@ impl RemoveUserByUuid {
 
 impl Command for RemoveUserByUuid {
     fn execute(&self, chatroom: &mut Chatroom, args: String) {
-        chatroom.remove_user_by_uuid(Uuid::from_str(&args).expect("coudln't convert to uuid"));
+        let _ = chatroom.remove_user_by_uuid(Uuid::from_str(&args).expect("coudln't convert to uuid"));
         println!("Hello! This is the '{}' command.", self.info.name);
     }
 }

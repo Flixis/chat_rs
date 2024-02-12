@@ -1,9 +1,9 @@
 use chrono::Utc;
 use log::info;
-use std::{io::Cursor, net::SocketAddr};
+use std::{io::Cursor, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    sync::broadcast,
+    sync::{broadcast, Mutex},
 };
 use uuid::Uuid;
 
@@ -13,13 +13,23 @@ use crate::{
 };
 
 pub async fn handle_connection(
-    mut socket: tokio::net::TcpStream,
+    stream: tokio::net::TcpStream,
     addr: SocketAddr,
     tx: broadcast::Sender<(String, SocketAddr)>,
-    chatroom: Chatroom,
+    mut chatroom: Chatroom,
 ) {
-    let (reader, mut writer) = socket.split();
-    let mut reader: BufReader<tokio::net::tcp::ReadHalf<'_>> = BufReader::new(reader);
+    let stream = Arc::new(Mutex::new(stream));
+ 
+    {
+        let _lock = stream.lock().await;
+        let _: Uuid = chatroom.add_user(stream.clone());
+    }
+    
+    let mut stream = stream.lock().await;
+    let (reader, mut writer) = stream.split();
+   
+
+    let mut reader = BufReader::new(reader);
     let mut line: String = String::new();
     let mut rx: broadcast::Receiver<(String, SocketAddr)> = tx.subscribe();
 
@@ -83,7 +93,7 @@ async fn parse_command(
                 .await
                 .unwrap();
         }
-    } else if line.starts_with("/connected"){
+    } else if line.starts_with("/connected") {
         info!(
             "{}({}) \n Current users: {:?}",
             chatroom.id, chatroom.channel_name, chatroom.users
